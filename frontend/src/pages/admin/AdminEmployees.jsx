@@ -70,7 +70,7 @@ const AdminEmployees = () => {
         setLoading(true);
         try {
             const data = await api.get('/users');
-            // Filter for staff and admins only
+            // Filter for staff and admins only (including deactivated ones)
             const staff = data.filter(u => u.role === 'EMPLOYEE' || u.role === 'ADMIN');
             setEmployees(staff);
         } catch (error) {
@@ -126,23 +126,44 @@ const AdminEmployees = () => {
         }
     };
 
-    const handleDelete = async (userId) => {
-        setConfirmDialog({
-            open: true,
-            title: 'Deactivate Account',
-            message: 'Are you sure you want to deactivate this account? This action can be reversed later.',
-            onConfirm: async () => {
-                try {
-                    await api.delete(`/users/${userId}`);
-                    toast.success(t('admin.accountDeactivated'));
-                    fetchEmployees();
-                } catch (error) {
-                    toast.error(error.message || 'Failed to deactivate account');
-                } finally {
-                    setConfirmDialog(prev => ({ ...prev, open: false }));
+    const handleDelete = async (userId, isActive) => {
+        if (isActive === false) {
+            // Reactivate
+            setConfirmDialog({
+                open: true,
+                title: 'Activate Account',
+                message: 'Are you sure you want to reactivate this account?',
+                onConfirm: async () => {
+                    try {
+                        await api.patch(`/users/${userId}/reactivate`);
+                        toast.success('Account reactivated successfully');
+                        fetchEmployees();
+                    } catch (error) {
+                        toast.error(error.message || 'Failed to reactivate account');
+                    } finally {
+                        setConfirmDialog(prev => ({ ...prev, open: false }));
+                    }
                 }
-            }
-        });
+            });
+        } else {
+            // Deactivate
+            setConfirmDialog({
+                open: true,
+                title: 'Deactivate Account',
+                message: 'Are you sure you want to deactivate this account? This action can be reversed later.',
+                onConfirm: async () => {
+                    try {
+                        await api.delete(`/users/${userId}`);
+                        toast.success(t('admin.accountDeactivated'));
+                        fetchEmployees();
+                    } catch (error) {
+                        toast.error(error.message || 'Failed to deactivate account');
+                    } finally {
+                        setConfirmDialog(prev => ({ ...prev, open: false }));
+                    }
+                }
+            });
+        }
     };
 
     const getInitials = (user) => {
@@ -243,9 +264,15 @@ const AdminEmployees = () => {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1 font-medium">
-                                            Active
-                                        </Badge>
+                                        {emp.isActive === false ? (
+                                            <Badge className="bg-red-100 text-red-800 border-red-200 gap-1 font-medium">
+                                                Deactivated
+                                            </Badge>
+                                        ) : (
+                                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 gap-1 font-medium">
+                                                Active
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
@@ -257,8 +284,12 @@ const AdminEmployees = () => {
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="gap-2 text-red-600" onClick={() => handleDelete(emp.id)}>
-                                                    <UserX size={14} /> Deactivate Account
+                                                <DropdownMenuItem 
+                                                    className={emp.isActive === false ? "gap-2 text-green-600" : "gap-2 text-red-600"} 
+                                                    onClick={() => handleDelete(emp.id, emp.isActive)}
+                                                >
+                                                    {emp.isActive === false ? <UserCheck size={14} /> : <UserX size={14} />}
+                                                    {emp.isActive === false ? 'Activate Account' : 'Deactivate Account'}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem className="gap-2" onClick={() => handleRoleUpdate(emp.id, emp.role === 'ADMIN' ? 'EMPLOYEE' : 'ADMIN')}>

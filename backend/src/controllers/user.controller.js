@@ -74,28 +74,50 @@ const deleteUser = async (req, res) => {
             return res.status(400).json({ message: 'You cannot delete your own account' });
         }
 
-        // Check if user has bookings - if so, just deactivate instead of delete
-        const userBookings = await prisma.booking.findMany({
-            where: { userId: parseInt(id) }
-        });
-
-        if (userBookings.length > 0) {
-            // Soft delete - deactivate the user instead
-            await prisma.user.update({
-                where: { id: parseInt(id) },
-                data: { email: `deleted_${Date.now()}@removed.com` }
-            });
-            return res.json({ message: 'User deactivated successfully (had existing bookings)' });
-        }
-
-        // Hard delete for users without bookings
-        await prisma.user.delete({
+        // Check if user exists
+        const user = await prisma.user.findUnique({
             where: { id: parseInt(id) }
         });
 
-        res.json({ message: 'User deleted successfully' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Always soft delete - just deactivate the user
+        await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: { 
+                isActive: false
+            }
+        });
+
+        res.json({ message: 'User deactivated successfully' });
     } catch (error) {
         console.error('Delete user error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+const reactivateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await prisma.user.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: { isActive: true }
+        });
+
+        res.json({ message: 'User reactivated successfully' });
+    } catch (error) {
+        console.error('Reactivate user error:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -104,5 +126,6 @@ module.exports = {
     getAllUsers,
     getUserById,
     updateUserRole,
-    deleteUser
+    deleteUser,
+    reactivateUser
 };
