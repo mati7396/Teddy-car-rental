@@ -7,6 +7,7 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 router.post('/', authenticate, bookingController.createBooking);
 router.get('/my', authenticate, bookingController.getMyBookings);
 router.get('/:id', authenticate, bookingController.getBookingById);
+router.patch('/:id', authenticate, bookingController.updateBooking);
 
 // Employee/Admin routes
 router.get('/', authenticate, authorize('EMPLOYEE', 'ADMIN'), bookingController.getAllBookings);

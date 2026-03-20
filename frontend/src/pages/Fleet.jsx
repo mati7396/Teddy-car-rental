@@ -28,7 +28,7 @@ const Fleet = () => {
 
     const categories = ['All', 'Economy', 'SUV', 'Luxury', 'Utility'];
 
-    const handleBookNow = (carId) => {
+    const handleBookNow = async (carId) => {
         if (!startDate || !endDate) {
             toast.error(t('booking.selectDatesError'));
             return;
@@ -43,7 +43,8 @@ const Fleet = () => {
             } else if (!hasAgreement) {
                 navigate(`/agreement?carId=${carId}`);
             } else {
-                navigate(`/payment?carId=${carId}`);
+                // User has docs and agreement, go to agreement page which will create booking
+                navigate(`/agreement?carId=${carId}`);
             }
         } else {
             navigate(`/login?carId=${carId}`);

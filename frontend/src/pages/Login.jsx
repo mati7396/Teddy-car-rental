@@ -39,7 +39,7 @@ const Login = () => {
                     } else if (!hasAgreement) {
                         navigate(`/agreement?carId=${carId}`);
                     } else {
-                        navigate(`/payment?carId=${carId}`);
+                        navigate(`/agreement?carId=${carId}`);
                     }
                 } else {
                     // General login

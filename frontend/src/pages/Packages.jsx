@@ -41,7 +41,7 @@ const Packages = () => {
         fetchPackages();
     }, []);
 
-    const handleBookPackage = (pkg) => {
+    const handleBookPackage = async (pkg) => {
         if (!startDate || !endDate) {
             toast.error(t('booking.selectDatesError'));
             return;
@@ -59,8 +59,8 @@ const Packages = () => {
             } else if (!hasAgreement) {
                 navigate(`/agreement?packageId=${pkg.id}`);
             } else {
-                // Find a car in the package category to book
-                navigate(`/payment?packageId=${pkg.id}`);
+                // User has docs and agreement, go to agreement page which will create booking
+                navigate(`/agreement?packageId=${pkg.id}`);
             }
         } else {
             navigate(`/login?packageId=${pkg.id}`);

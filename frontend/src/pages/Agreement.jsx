@@ -17,25 +17,88 @@ const Agreement = () => {
     const [agreed, setAgreed] = useState(false);
     const carId = searchParams.get('carId');
     const packageId = searchParams.get('packageId');
+    const bookingCreatedRef = React.useRef(false); // Prevent duplicate creation
 
-    // Skip if already signed
+    // Auto-create booking for users who already signed agreement
     useEffect(() => {
-        if (!authLoading && isAuthenticated && user?.profile?.agreementSigned) {
-            if (carId) {
-                navigate(`/payment?carId=${carId}`);
-            } else if (packageId) {
-                navigate(`/payment?packageId=${packageId}`);
-            } else {
+        const autoCreateBooking = async () => {
+            // Wait for auth to load
+            if (authLoading) return;
+            
+            // If not authenticated, let the form handle it
+            if (!isAuthenticated) return;
+            
+            // If user hasn't signed agreement yet, show the form
+            if (!user?.profile?.agreementSigned) return;
+            
+            // If no booking in progress, redirect home
+            if (!carId && !packageId) {
                 navigate('/');
+                return;
             }
-        }
-    }, [authLoading, isAuthenticated, user, carId, packageId, navigate]);
+            
+            // Prevent duplicate creation (React 18 Strict Mode runs effects twice)
+            if (bookingCreatedRef.current) return;
+            bookingCreatedRef.current = true;
+            
+            // User has signed agreement and is trying to book - create booking automatically
+            setLoading(true);
+            try {
+                const sDateStr = sessionStorage.getItem('startDate');
+                const eDateStr = sessionStorage.getItem('endDate');
+                
+                let durationDays = 3;
+                if (sDateStr && eDateStr) {
+                    const start = new Date(sDateStr);
+                    const end = new Date(eDateStr);
+                    const diffTime = Math.abs(end - start);
+                    durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                }
+
+                const payload = {
+                    carId: carId ? parseInt(carId) : null,
+                    packageId: packageId ? parseInt(packageId) : null,
+                    startDate: sDateStr ? new Date(sDateStr).toISOString() : new Date().toISOString(),
+                    endDate: eDateStr ? new Date(eDateStr).toISOString() : new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString(),
+                    totalAmount: 0,
+                    idCardUrl: sessionStorage.getItem('idCardUrl') || user?.profile?.idCardUrl,
+                    driverLicenseUrl: sessionStorage.getItem('licenseUrl') || user?.profile?.driverLicenseUrl,
+                    pickupLocation: 'To be determined',
+                    returnLocation: 'To be determined',
+                    isDelivery: false
+                };
+
+                // Create booking - backend will determine if it should be PENDING or VERIFIED
+                const booking = await api.post('/bookings', payload);
+                
+                // Check the status of the newly created booking
+                if (booking.status === 'VERIFIED') {
+                    // User has verified documents - go to payment
+                    toast.success('Booking created! Proceeding to payment...');
+                    navigate(`/payment?carId=${carId || ''}&packageId=${packageId || ''}&bookingId=${booking.id}`);
+                } else {
+                    // First-time user or pending verification - go to pending page
+                    toast.success('Booking created! Waiting for document verification...');
+                    navigate(`/pending-verification?bookingId=${booking.id}`);
+                }
+            } catch (error) {
+                console.error('Error creating booking:', error);
+                toast.error(error.message || 'Failed to create booking');
+                setLoading(false);
+                bookingCreatedRef.current = false; // Reset on error
+            }
+        };
+
+        autoCreateBooking();
+    }, [authLoading, isAuthenticated, user?.profile?.agreementSigned, carId, packageId, navigate]);
 
     // Unified Agreement: No longer blocks without carId.
     // This allows setup during registration.
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // This form is only for first-time users who haven't signed the agreement yet
         if (!signature || !agreed) return;
 
         setLoading(true);
@@ -43,21 +106,45 @@ const Agreement = () => {
             // Save agreement to profile
             await api.patch('/auth/profile', {
                 agreementSigned: true,
-                // Pass existing details to avoid clearing them if upsert logic needs them
                 firstName: user?.profile?.firstName,
                 lastName: user?.profile?.lastName,
                 phoneNumber: user?.profile?.phoneNumber
             });
 
-            // Sync local state
             await refreshUser();
 
-            if (carId) {
-                navigate(`/payment?carId=${carId}`);
-            } else if (packageId) {
-                navigate(`/payment?packageId=${packageId}`);
+            // Create a PENDING booking with documents
+            if (carId || packageId) {
+                const sDateStr = sessionStorage.getItem('startDate');
+                const eDateStr = sessionStorage.getItem('endDate');
+                
+                let durationDays = 3;
+                if (sDateStr && eDateStr) {
+                    const start = new Date(sDateStr);
+                    const end = new Date(eDateStr);
+                    const diffTime = Math.abs(end - start);
+                    durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                }
+
+                const payload = {
+                    carId: carId ? parseInt(carId) : null,
+                    packageId: packageId ? parseInt(packageId) : null,
+                    startDate: sDateStr ? new Date(sDateStr).toISOString() : new Date().toISOString(),
+                    endDate: eDateStr ? new Date(eDateStr).toISOString() : new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString(),
+                    totalAmount: 0,
+                    idCardUrl: sessionStorage.getItem('idCardUrl') || user?.profile?.idCardUrl,
+                    driverLicenseUrl: sessionStorage.getItem('licenseUrl') || user?.profile?.driverLicenseUrl,
+                    pickupLocation: 'To be determined',
+                    returnLocation: 'To be determined',
+                    isDelivery: false
+                };
+
+                const booking = await api.post('/bookings', payload);
+                toast.success('Booking created! Waiting for document verification...');
+                navigate(`/pending-verification?bookingId=${booking.id}`);
             } else {
-                toast.success(t('booking.agreementSigned'));
+                // No booking, just profile setup - redirect to home
+                toast.success('Profile setup complete! You can now book a vehicle.');
                 navigate('/');
             }
         } catch (error) {

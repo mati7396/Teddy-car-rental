@@ -50,6 +50,19 @@ const createBooking = async (req, res) => {
             locationInfo = `Package Booking - Package ID: ${packageId}`;
         }
 
+        // Check if user has any previously verified bookings (documents already verified)
+        const previousVerifiedBooking = await prisma.booking.findFirst({
+            where: {
+                userId,
+                status: {
+                    in: ['VERIFIED', 'APPROVED', 'PAID', 'ACTIVE', 'COMPLETED']
+                }
+            }
+        });
+
+        // If user has verified bookings before, skip document verification
+        const initialStatus = previousVerifiedBooking ? 'VERIFIED' : 'PENDING';
+
         const booking = await prisma.booking.create({
             data: {
                 userId,
@@ -63,7 +76,7 @@ const createBooking = async (req, res) => {
                 pickupLocation: locationInfo,
                 returnLocation,
                 isDelivery: isDelivery || false,
-                status: 'PENDING',
+                status: initialStatus,
                 payment: (paymentDetails && paymentDetails.method) ? {
                     create: {
                         amount: parseFloat(totalAmount),
@@ -233,11 +246,81 @@ const getBookingById = async (req, res) => {
     }
 };
 
+const updateBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const updateData = req.body;
+
+        // Check if booking exists and belongs to user
+        const booking = await prisma.booking.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        if (booking.userId !== userId) {
+            return res.status(403).json({ message: 'Not authorized to update this booking' });
+        }
+
+        // Handle payment details if provided
+        if (updateData.paymentDetails) {
+            const { method, phoneNumber, accountNumber, transactionNumber } = updateData.paymentDetails;
+            
+            // Create or update payment record
+            await prisma.payment.upsert({
+                where: { bookingId: parseInt(id) },
+                update: {
+                    method,
+                    amount: updateData.totalAmount || booking.totalAmount,
+                    payerIdentifier: phoneNumber || accountNumber,
+                    transactionId: transactionNumber,
+                    status: 'PENDING'
+                },
+                create: {
+                    bookingId: parseInt(id),
+                    method,
+                    amount: updateData.totalAmount || booking.totalAmount,
+                    payerIdentifier: phoneNumber || accountNumber,
+                    transactionId: transactionNumber,
+                    status: 'PENDING'
+                }
+            });
+
+            delete updateData.paymentDetails;
+        }
+
+        // Update booking
+        const updatedBooking = await prisma.booking.update({
+            where: { id: parseInt(id) },
+            data: updateData,
+            include: {
+                car: true,
+                package: true,
+                payment: true,
+                user: {
+                    include: {
+                        customerProfile: true
+                    }
+                }
+            }
+        });
+
+        res.json(updatedBooking);
+    } catch (error) {
+        console.error('Update booking error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 module.exports = {
     createBooking,
     getMyBookings,
     getAllBookings,
     updateBookingStatus,
     assignDriver,
-    getBookingById
+    getBookingById,
+    updateBooking
 };

@@ -39,6 +39,7 @@ const Payment = () => {
 
     const carId = searchParams.get('carId');
     const packageId = searchParams.get('packageId');
+    const bookingId = searchParams.get('bookingId');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -141,9 +142,17 @@ const Payment = () => {
                 }
             };
 
-            const response = await api.post('/bookings', payload);
+            let response;
+            if (bookingId) {
+                // Update existing booking with payment details (keep status as VERIFIED, employee will verify payment)
+                response = await api.patch(`/bookings/${bookingId}`, payload);
+            } else {
+                // Create new booking (old flow for backward compatibility)
+                response = await api.post('/bookings', payload);
+            }
+            
             sessionStorage.setItem('lastBookingId', response.id);
-            toast.success(t('booking.successProcessed'));
+            toast.success('Payment details submitted! Waiting for employee verification...');
             navigate('/confirmation');
         } catch (error) {
             toast.error(error.message || t('booking.failedToProcessBooking'));

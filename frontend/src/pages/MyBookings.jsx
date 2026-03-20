@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/api';
+import { useNavigate } from 'react-router-dom';
 import {
     Car,
     Package,
@@ -123,6 +124,7 @@ const BookingProgressTracker = ({ status }) => {
 
 const MyBookings = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedBooking, setSelectedBooking] = useState(null);
@@ -281,6 +283,32 @@ const MyBookings = () => {
 
                                     {/* Actions */}
                                     <div className="flex items-center gap-3 lg:border-l lg:border-gray-50 lg:pl-8 shrink-0">
+                                        {booking.status === 'VERIFIED' && !booking.payment && (
+                                            <Button
+                                                onClick={() => navigate(`/payment?carId=${booking.carId || ''}&packageId=${booking.packageId || ''}&bookingId=${booking.id}`)}
+                                                className="w-full lg:w-auto rounded-xl shadow-lg bg-green-600 hover:bg-green-700 text-white transition-all font-bold px-6"
+                                            >
+                                                Continue to Payment
+                                            </Button>
+                                        )}
+                                        {booking.status === 'VERIFIED' && booking.payment && (
+                                            <Button
+                                                variant="outline"
+                                                disabled
+                                                className="w-full lg:w-auto rounded-xl font-bold px-6"
+                                            >
+                                                Payment Pending Verification
+                                            </Button>
+                                        )}
+                                        {booking.status === 'PENDING' && (
+                                            <Button
+                                                onClick={() => navigate(`/pending-verification?bookingId=${booking.id}`)}
+                                                variant="outline"
+                                                className="w-full lg:w-auto rounded-xl font-bold px-6"
+                                            >
+                                                Check Status
+                                            </Button>
+                                        )}
                                         <Button
                                             onClick={() => openDetails(booking)}
                                             className="w-full lg:w-32 rounded-xl shadow-lg shadow-primary/10 hover:shadow-primary/30 transition-all font-bold group/btn"

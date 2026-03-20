@@ -22,6 +22,7 @@ import AdminEmployees from './pages/admin/AdminEmployees';
 import AdminPackages from './pages/admin/AdminPackages';
 import AdminFinancials from './pages/admin/AdminFinancials';
 import AdminLogout from './pages/admin/AdminLogout';
+import PendingVerification from './pages/PendingVerification';
 
 // Employee Pages
 import EmployeeDashboard from './pages/employee/EmployeeDashboard';
@@ -62,6 +63,9 @@ function App() {
               } />
               <Route path="/agreement" element={
                 <ProtectedRoute roles={['CUSTOMER']}><Agreement /></ProtectedRoute>
+              } />
+              <Route path="/pending-verification" element={
+                <ProtectedRoute roles={['CUSTOMER']}><PendingVerification /></ProtectedRoute>
               } />
               <Route path="/payment" element={
                 <ProtectedRoute roles={['CUSTOMER']}><Payment /></ProtectedRoute>

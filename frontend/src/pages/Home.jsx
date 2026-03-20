@@ -28,7 +28,7 @@ const Home = () => {
         return saved ? new Date(saved) : null;
     });
 
-    const handleBookNow = (carId) => {
+    const handleBookNow = async (carId) => {
         if (!startDate || !endDate) {
             toast.error(t('booking.selectDatesError'));
             window.scrollTo({ top: 300, behavior: 'smooth' }); // Scroll to search bar
@@ -44,7 +44,8 @@ const Home = () => {
             } else if (!hasAgreement) {
                 navigate(`/agreement?carId=${carId}`);
             } else {
-                navigate(`/payment?carId=${carId}`);
+                // User has docs and agreement, go to agreement page which will create booking
+                navigate(`/agreement?carId=${carId}`);
             }
         } else {
             navigate(`/login?carId=${carId}`);
